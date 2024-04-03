@@ -1,0 +1,30 @@
+{
+  "serverPort": 8080,
+  "apiPrefix": "/v1",
+  "cors": {
+    "whitelist": ["http://localhost:3000", "http://localhost:3001"]
+  },
+  "database": {
+    "url": "postgresql://postgres:postgres@localhost:5432/ishop?schema=public"
+  },
+  "token": {
+    "secret": "hashed-secret",
+    "accessToken": {
+      "expiresIn": 3600
+    },
+    "refreshToken": {
+      "expiresIn": 43200
+    },
+    "verificationToken": {
+      "expiresIn": 900
+    },
+    "passwordResetToken": {
+      "expiresIn": 900
+    },
+    "twoFactorToken": {
+      "expiresIn": 300
+    }
+  },
+  "appAdminURL": "http://localhost:3001",
+  "appStoreURL": "http://localhost:3000"
+}

@@ -1,0 +1,413 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @db.Timestamp()
+  name      String    @unique @db.VarChar(64)
+
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? @db.Timestamp()
+  action     String
+  subject    String
+  inverted   Boolean   @default(false)
+  conditions Json?
+  reason     String?
+  roleId     String
+
+  role Role @relation(fields: [roleId], references: [id])
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime? @db.Timestamp()
+  email              String    @unique @db.VarChar(254)
+  emailVerified      DateTime?
+  image              String?
+  username           String    @unique @db.VarChar(64)
+  password           String
+  roleId             String
+  isTwoFactorEnabled Boolean   @default(false)
+
+  accounts              Account[]
+  twoFactorConfirmation TwoFactorConfirmation?
+  role                  Role                   @relation(fields: [roleId], references: [id])
+  profile               Profile?
+  addresses             Address[]
+  reviews               UserReview[]
+  shoppingCart          ShoppingCart?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id     String @id @default(cuid())
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model Profile {
+  id         String   @id @default(cuid())
+  updatedAt  DateTime @updatedAt
+  givenName  String?  @db.VarChar(64)
+  familyName String?  @db.VarChar(64)
+  telephone  String?  @db.VarChar(12)
+  avatar     String?
+  bio        String?
+  userId     String   @unique
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Address {
+  id           String  @id @default(cuid())
+  userId       String?
+  name         String
+  addressLine  String
+  wardCode     String
+  districtCode String
+  provinceCode String
+
+  ward     Ward     @relation(fields: [wardCode], references: [code])
+  district District @relation(fields: [districtCode], references: [code])
+  province Province @relation(fields: [provinceCode], references: [code])
+  user     User?    @relation(fields: [userId], references: [id])
+  orders   Order[]
+
+  @@index([districtCode])
+}
+
+model Ward {
+  id           String @id @default(cuid())
+  code         String @unique
+  name         String
+  districtCode String
+
+  district  District  @relation(fields: [districtCode], references: [code])
+  addresses Address[]
+
+  @@index([districtCode])
+}
+
+model District {
+  id           String @id @default(cuid())
+  code         String @unique
+  name         String
+  provinceCode String
+
+  province  Province  @relation(fields: [provinceCode], references: [code])
+  wards     Ward[]
+  addresses Address[]
+
+  @@index([provinceCode])
+}
+
+model Province {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+
+  districts District[]
+  addresses Address[]
+}
+
+model Shop {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  slug        String   @unique @db.VarChar(32)
+  name        String   @unique @db.VarChar(32)
+  description String?  @db.VarChar(256)
+  userId      String
+
+  billboards      Billboard[]
+  categories      Category[]
+  products        Product[]
+  orders          Order[]
+  promotions      Promotion[]
+  brands          Brand[]
+  shippingMethods ShippingMethod[]
+  orderStatuses   OrderStatus[]
+}
+
+model Billboard {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  shopId     String
+  heading    String   @db.VarChar(64)
+  subheading String?  @db.VarChar(128)
+  imageUrl   String
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
+}
+
+model Category {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  shopId           String
+  name             String   @db.VarChar(32)
+  parentCategoryId String?
+
+  parentCategory Category?           @relation("NestedCategory", fields: [parentCategoryId], references: [id])
+  subCategories  Category[]          @relation("NestedCategory")
+  shop           Shop                @relation(fields: [shopId], references: [id])
+  products       Product[]
+  variants       Variant[]
+  promotions     PromotionCategory[]
+
+  @@index([shopId])
+}
+
+model Variant {
+  id         String @id @default(cuid())
+  categoryId String
+  name       String @db.VarChar(32)
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  variantOptions VariantOption[]
+}
+
+model VariantOption {
+  id        String @id @default(cuid())
+  variantId String
+  label     String @db.VarChar(32)
+  value     String @db.VarChar(16)
+
+  variant      Variant       @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  productItems ProductItem[]
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? @db.Timestamp()
+  shopId      String
+  categoryId  String
+  brandId     String
+  name        String    @db.VarChar(64)
+  description String?
+  imageUrl    String?
+  isFeatured  Boolean   @default(false)
+
+  shop         Shop          @relation(fields: [shopId], references: [id])
+  category     Category      @relation(fields: [categoryId], references: [id])
+  brand        Brand         @relation(fields: [brandId], references: [id])
+  productItems ProductItem[]
+}
+
+model ProductItem {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? @db.Timestamp()
+  SKU        String    @unique @db.VarChar(12)
+  qtyInStock Int
+  imageUrl   String?
+  price      Decimal
+  productId  String
+
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  configurations VariantOption[]
+  orderLines     OrderLine[]
+  shoppingCart   ShoppingCartItem[]
+
+  @@index([SKU])
+}
+
+model Promotion {
+  id           String   @id @default(cuid())
+  name         String   @db.VarChar(32)
+  description  String   @db.VarChar(128)
+  discountRate Int
+  startDate    DateTime
+  endDate      DateTime
+  shopId       String
+
+  shop       Shop                @relation(fields: [shopId], references: [id])
+  categories PromotionCategory[]
+
+  @@index([shopId])
+}
+
+model PromotionCategory {
+  promotionId String
+  categoryId  String
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  category  Category  @relation(fields: [categoryId], references: [id])
+
+  @@id([promotionId, categoryId])
+}
+
+model Brand {
+  id          String  @id @default(cuid())
+  shopId      String
+  name        String  @db.VarChar(32)
+  description String? @db.VarChar(256)
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  products Product[]
+
+  @@index([shopId])
+}
+
+model Order {
+  id               String   @id @default(cuid())
+  shopId           String
+  orderDate        DateTime @default(now())
+  customerName     String   @db.VarChar(64)
+  customerPhone    String   @db.VarChar(12)
+  addressLine      String   @db.VarChar(128)
+  addressId        String
+  note             String?  @db.VarChar(256)
+  shippingMethodId String?
+  orderStatusId    String
+  orderTotal       Decimal
+  isPaid           Boolean  @default(false)
+
+  shop           Shop            @relation(fields: [shopId], references: [id])
+  address        Address         @relation(fields: [addressId], references: [id])
+  shippingMethod ShippingMethod? @relation(fields: [shippingMethodId], references: [id])
+  orderStatus    OrderStatus     @relation(fields: [orderStatusId], references: [id])
+  orderLines     OrderLine[]
+  userReview     UserReview?
+
+  @@index([shopId])
+}
+
+model ShippingMethod {
+  id     String  @id @default(cuid())
+  shopId String
+  name   String  @db.VarChar(32)
+  price  Decimal
+
+  shop  Shop    @relation(fields: [shopId], references: [id])
+  order Order[]
+}
+
+model OrderStatus {
+  id     String @id @default(cuid())
+  shopId String
+  status String @db.VarChar(32)
+
+  shop  Shop    @relation(fields: [shopId], references: [id])
+  order Order[]
+}
+
+model OrderLine {
+  id            String @id @default(cuid())
+  orderId       String
+  productItemId String
+  qty           Int
+
+  order       Order       @relation(fields: [orderId], references: [id])
+  productItem ProductItem @relation(fields: [productItemId], references: [id])
+
+  @@index([orderId])
+  @@index([productItemId])
+}
+
+model UserReview {
+  id      String  @id @default(cuid())
+  userId  String
+  orderId String  @unique
+  rating  Int
+  comment String? @db.VarChar(256)
+
+  user  User  @relation(fields: [userId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+}
+
+model ShoppingCart {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  user  User               @relation(fields: [userId], references: [id])
+  items ShoppingCartItem[]
+}
+
+model ShoppingCartItem {
+  shoppingCartId String
+  productItemId  String
+  qty            Int
+
+  shoppingCart ShoppingCart @relation(fields: [shoppingCartId], references: [id])
+  productItem  ProductItem  @relation(fields: [productItemId], references: [id])
+
+  @@id(name: "cartItemId", [shoppingCartId, productItemId])
+}
